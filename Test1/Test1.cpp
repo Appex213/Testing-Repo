@@ -1,240 +1,162 @@
-//A very simple C++ implementation of John Conway's Game of Life.
-//This implementation uses several nested for loops as well as two-dimensional
-//arrays to create a grid for the cells in the simulation to interact.
-//The array that is displayed to the user is 50 x 100, but actual size
-//of the array is 52 x 102.  The reason for this is to make the 
-//calculations easier for the cells on the outermost "frame" of the grid.
-
-#include <iostream>
-#include <string>
+/*
+* The Game of Life
+*
+* a cell is born, if it has exactly three neighbours
+* a cell dies of loneliness, if it has less than two neighbours
+* a cell dies of overcrowding, if it has more than three neighbours
+* a cell survives to the next generation, if it does not die of loneliness
+* or overcrowding
+*
+* In my version, a 2D array of ints is used.  A 1 cell is on, a 0 cell is off.
+* The game plays 100 rounds, printing to the screen each time.  'x' printed
+* means on, space means 0.
+*
+*/
 #include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 
-using namespace std;
+/* dimensions of the screen */
 
-//Copies one array to another.
-void copy(int array1[52][102], int array2[52][102])
-{
-	for (int j = 0; j < 52; j++)
-	{
-		for (int i = 0; i < 102; i++)
-			array2[j][i] = array1[j][i];
+#define BOARD_WIDTH	79
+#define BOARD_HEIGHT	24
+
+/* set everthing to zero */
+
+void initialize_board(int board[][BOARD_HEIGHT]) {
+	int	i, j;
+
+	for (i = 0; i<BOARD_WIDTH; i++) for (j = 0; j<BOARD_HEIGHT; j++)
+		board[i][j] = 0;
+}
+
+/* add to a width index, wrapping around like a cylinder */
+
+int xadd(int i, int a) {
+	i += a;
+	while (i < 0) i += BOARD_WIDTH;
+	while (i >= BOARD_WIDTH) i -= BOARD_WIDTH;
+	return i;
+}
+
+/* add to a height index, wrapping around */
+
+int yadd(int i, int a) {
+	i += a;
+	while (i < 0) i += BOARD_HEIGHT;
+	while (i >= BOARD_HEIGHT) i -= BOARD_HEIGHT;
+	return i;
+}
+
+/* return the number of on cells adjacent to the i,j cell */
+
+int adjacent_to(int board[][BOARD_HEIGHT], int i, int j) {
+	int	k, l, count;
+
+	count = 0;
+
+	/* go around the cell */
+
+	for (k = -1; k <= 1; k++) for (l = -1; l <= 1; l++)
+
+		/* only count if at least one of k,l isn't zero */
+
+		if (k || l)
+			if (board[xadd(i, k)][yadd(j, l)]) count++;
+	return count;
+}
+
+void play(int board[][BOARD_HEIGHT]) {
+	/*
+	(copied this from some web page, hence the English spellings...)
+
+	1.STASIS : If, for a given cell, the number of on neighbours is
+	exactly two, the cell maintains its status quo into the next
+	generation. If the cell is on, it stays on, if it is off, it stays off.
+
+	2.GROWTH : If the number of on neighbours is exactly three, the cell
+	will be on in the next generation. This is regardless of the cell's 		current state.
+
+	3.DEATH : If the number of on neighbours is 0, 1, 4-8, the cell will
+	be off in the next generation.
+	*/
+	int	i, j, a, newboard[BOARD_WIDTH][BOARD_HEIGHT];
+
+	/* for each cell, apply the rules of Life */
+
+	for (i = 0; i<BOARD_WIDTH; i++) for (j = 0; j<BOARD_HEIGHT; j++) {
+		a = adjacent_to(board, i, j);
+		if (a == 2) newboard[i][j] = board[i][j];
+		if (a == 3) newboard[i][j] = 1;
+		if (a < 2) newboard[i][j] = 0;
+		if (a > 3) newboard[i][j] = 0;
+	}
+
+	/* copy the new board back into the old board */
+
+	for (i = 0; i<BOARD_WIDTH; i++) for (j = 0; j<BOARD_HEIGHT; j++) {
+		board[i][j] = newboard[i][j];
 	}
 }
 
-//The life function is the most important function in the program.
-//It counts the number of cells surrounding the center cell, and 
-//determines whether it lives, dies, or stays the same.
-void life(int array[52][102], char choice)
-{
-	//Copies the main array to a temp array so changes can be entered into a grid
-	//without effecting the other cells and the calculations being performed on them.
-	int temp[52][102];
-	copy(array, temp);
-	for (int j = 1; j < 51; j++)
-	{
-		for (int i = 1; i < 101; i++)
-		{
-			if (choice == 'm')
-			{
-				//The Moore neighborhood checks all 8 cells surrounding the current cell in the array.
-				int count = 0;
-				count = array[j - 1][i] +
-					array[j - 1][i - 1] +
-					array[j][i - 1] +
-					array[j + 1][i - 1] +
-					array[j + 1][i] +
-					array[j + 1][i + 1] +
-					array[j][i + 1] +
-					array[j - 1][i + 1];
-				//The cell dies.
-				if (count < 2 || count > 3)
-					temp[j][i] = 0;
-				//The cell stays the same.
-				if (count == 2)
-					temp[j][i] = array[j][i];
-				//The cell either stays alive, or is "born".
-				if (count == 3)
-					temp[j][i] = 1;
-			}
+/* print the life board */
 
-			else if (choice == 'v')
-			{
-				//The Von Neumann neighborhood checks only the 4 surrounding cells in the array,
-				//(N, S, E, and W).
-				int count = 0;
-				count = array[j - 1][i] +
-					array[j][i - 1] +
-					array[j + 1][i] +
-					array[j][i + 1];
-				//The cell dies.  
-				if (count < 2 || count > 3)
-					temp[j][i] = 0;
-				//The cell stays the same.
-				if (count == 2)
-					temp[j][i] = array[j][i];
-				//The cell either stays alive, or is "born".
-				if (count == 3)
-					temp[j][i] = 1;
-			}
+void print(int board[][BOARD_HEIGHT]) {
+	int	i, j;
+
+	/* for each row */
+
+	for (j = 0; j<BOARD_HEIGHT; j++) {
+
+		/* print each column position... */
+
+		for (i = 0; i<BOARD_WIDTH; i++) {
+			printf("%c", board[i][j] ? 'x' : ' ');
+		}
+
+		/* followed by a carriage return */
+
+		printf("\n");
+	}
+}
+
+/* read a file into the life board */
+
+void read_file(int board[][BOARD_HEIGHT], char *name) {
+	FILE	*f;
+	int	i, j;
+	char	s[100];
+
+	f = fopen(name, "r");
+	for (j = 0; j<BOARD_HEIGHT; j++) {
+
+		/* get a string */
+
+		fgets(s, 100, f);
+
+		/* copy the string to the life board */
+
+		for (i = 0; i<BOARD_WIDTH; i++) {
+			board[i][j] = s[i] == 'x';
 		}
 	}
-	//Copies the completed temp array back to the main array.
-	copy(temp, array);
+	fclose(f);
 }
 
-//Checks to see if two arrays are exactly the same. 
-//This is used to end the simulation early, if it 
-//becomes stable before the 100th generation. This
-//occurs fairly often in the Von Neumann neighborhood,
-//but almost never in the Moore neighborhood.
-bool compare(int array1[52][102], int array2[52][102])
-{
-	int count = 0;
-	for (int j = 0; j < 52; j++)
-	{
-		for (int i = 0; i < 102; i++)
-		{
-			if (array1[j][i] == array2[j][i])
-				count++;
-		}
+/* main program */
+
+int main(int argc, char *argv[]) {
+	int	board[BOARD_WIDTH][BOARD_HEIGHT], i, j;
+
+	initialize_board(board);
+	read_file(board, argv[1]);
+
+	/* play game of life 100 times */
+
+	for (i = 0; i<100; i++) {
+		print(board);
+		play(board);
+
+		/* clear the screen using VT100 escape codes */
+
+		puts("\033[H\033[J");
 	}
-	//Since the count gets incremented every time the cells are exactly the same,
-	//an easy way to check if the two arrays are equal is to compare the count to 
-	//the dimensions of the array multiplied together.
-	if (count == 52 * 102)
-		return true;
-	else
-		return false;
-}
-
-//This function prints the 50 x 100 part of the array, since that's the only
-//portion of the array that we're really interested in. A live cell is marked
-//by a '*', and a dead or vacant cell by a ' '.
-void print(int array[52][102])
-{
-	for (int j = 1; j < 51; j++)
-	{
-		for (int i = 1; i < 101; i++)
-		{
-			if (array[j][i] == 1)
-				cout << '*';
-			else
-				cout << ' ';
-		}
-		cout << endl;
-	}
-}
-
-int main()
-{
-	int gen0[52][102];
-	int todo[52][102];
-	int backup[52][102];
-	char neighborhood;
-	char again;
-	char cont;
-	bool comparison;
-	string decoration;
-
-	//Instructions on how the program is used, along with the rules of the game.
-	cout << endl << "This program is a C++ implementation of John Conway's Game of Life."
-		<< endl << "With it, you can simulate how \"cells\" interact with each other." << endl
-		<< endl << "There are two types of neighborhoods you can choose, the"
-		<< endl << "Moore, and the Von Neumann.  The Moore neighborhood checks"
-		<< endl << "all 8 surrounding cells, whereas the Von Neumann checks"
-		<< endl << "only the 4 cardinal directions: (N, S, E, and W)." << endl
-		<< endl << "The rules of the \"Game of Life\" are as follows:" << endl
-		<< endl << "1. Any live cell with fewer than two live neighbors dies, as if caused by under-population."
-		<< endl << "2. Any live cell with two or three live neighbors lives on to the next generation."
-		<< endl << "3. Any live cell with more than three live neighbors dies, as if by overcrowding."
-		<< endl << "4. Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction." << endl
-		<< endl << "The initial configuration (Generation 0) of the board is determined randomly."
-		<< endl << "Every hundred Generations you will get the option to end or continue the simulation."
-		<< endl << "If a system becomes \"stable\" (meaning the system does not change from one"
-		<< endl << "generation to the next), the simulation will end automatically." << endl << endl;
-	//Loop to check if user wants to keep simulating.
-	do
-	{
-		//Loop to check for proper inputs.
-		do
-		{
-			cout << "Which neighborhood would you like to use (m or v): ";
-			cin >> neighborhood;
-		} while (neighborhood != 'm' && neighborhood != 'v');
-		//Clears the screen so the program can start fresh.
-		system("clear");
-		int i = 0;
-		//Loop that does the bulk of the simulation.
-		do
-		{
-			//Generates the initial random state of the game board.
-			srand(time(NULL));
-			//The actual array is 102 x 52, but it's easier to just leave the surrounding part of
-			//the array blank so it doesn't effect the calculations in the life function above.
-			for (int j = 1; j < 51; j++)
-			{
-				for (int i = 1; i < 101; i++)
-					gen0[j][i] = rand() % 2;
-			}
-			//Determines how big the decoration should be.
-			if (i < 10)
-				decoration = "#############";
-			else if (i >= 10 && i < 100)
-				decoration = "##############";
-			else if (i >= 100 && i < 1000)
-				decoration = "###############";
-			else if (i >= 1000 && i < 10000)
-				decoration = "################";
-			else
-				decoration = "#################";
-			//Prints the generation.  If i == 0, the gen0 array is copied to the 
-			//todo array, and is printed before any functions act upon it.
-			cout << decoration << endl << "Generation " << i
-				<< ":" << endl << decoration << endl << endl;
-			//Initializes the arrays by copying the gen0 array to the todo array.
-			if (i == 0)
-				copy(gen0, todo);
-			copy(todo, backup);
-			print(todo);
-			life(todo, neighborhood);
-			i++;
-			//Pauses the system for 1/10 of a second in order to give the screen
-			//time to refresh.
-			system("sleep .1");
-			//Checks whether the generation is a multiple of 100 to ask 
-			//the user if they want to continue the simulation. If they
-			//wish to end, the program breaks out of the loop to ask if
-			//the user wishes to run another simulation.
-			if (i % 100 == 1 && i != 1)
-			{
-				cout << endl;
-				//Loop to check for proper inputs.
-				do
-				{
-					cout << "Would you like to continue this simulation? (y/n): ";
-					cin >> cont;
-				} while (cont != 'y' && cont != 'n');
-				if (cont == 'n')
-					break;
-			}
-			//Compares the current generation with a backup generation.
-			//If they aren't the same (they usually aren't) the system
-			//clears the screen and repeats the process until they are
-			//the same or the user chooses to quit.
-			comparison = compare(todo, backup);
-			if (comparison == false)
-				system("clear");
-			if (comparison == true)
-				cout << endl;
-		} while (comparison == false);
-		//Loop to check for proper inputs.
-		do
-		{
-			cout << "Would you like to run another simulation? (y/n): ";
-			cin >> again;
-		} while (again != 'y' && again != 'n');
-	} while (again == 'y');
-	return 0;
 }
